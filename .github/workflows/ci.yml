@@ -2,16 +2,8 @@ name: CI
 
 on:
   push:
-    branches: [main]
-    paths:
-      - 'packages/cli/**'
-      - 'packages/core/**'
-      - 'pnpm-lock.yaml'
-      - 'pnpm-workspace.yaml'
-      - 'package.json'
-      - 'marketplace'
-      - '**/*.py'
-      - '.github/workflows/ci.yml'
+    branches: ['**']
+    tags: ['fork-v*']
   pull_request:
     branches: [main]
     paths:
@@ -24,24 +16,66 @@ on:
       - '**/*.py'
       - '.github/workflows/ci.yml'
 
+permissions: {}
+
+defaults:
+  run:
+    shell: bash
+
 jobs:
   build:
-    runs-on: ubuntu-latest
+    if: >-
+      ${{ !github.event.deleted && (github.ref_type != 'tag' ||
+      (github.repository == 'JLA97/Trellis' && github.event.created)) }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    env:
+      HUSKY: '0'
+    outputs:
+      commit: ${{ steps.tag.outputs.commit }}
+      sha256: ${{ steps.pack.outputs.sha256 }}
+      artifact_id: ${{ steps.upload.outputs.artifact-id }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          fetch-depth: ${{ github.ref_type == 'tag' && '0' || '1' }}
+          persist-credentials: false
           submodules: recursive
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
-          node-version: "20"
+          node-version: '22'
+          package-manager-cache: false
+
+      - name: Validate fork tag and commit
+        if: github.ref_type == 'tag'
+        id: tag
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          # The shared preflight checks package equality. Fork tags have their own grammar.
+          env -u GITHUB_REF -u GITHUB_REF_NAME node packages/cli/scripts/release-preflight.js check-versions
+          version=$(node -p 'require("./packages/cli/package.json").version')
+          prefix="fork-v${version}-"
+          revision=${RELEASE_TAG#"$prefix"}
+          if [[ "$RELEASE_TAG" != "$prefix"* || ! "$revision" =~ ^[1-9][0-9]*$ ]]; then
+            echo "Expected ${prefix}<positive revision> for the checked-out package versions." >&2
+            exit 1
+          fi
+          commit=$(git rev-parse HEAD)
+          test "$(git rev-parse "refs/tags/${RELEASE_TAG}^{commit}")" = "$commit"
+          test "$(git rev-parse "${GITHUB_SHA}^{commit}")" = "$commit"
+          git merge-base --is-ancestor "$commit" refs/remotes/origin/main
+          printf 'commit=%s\nversion=%s\n' "$commit" "$version" >> "$GITHUB_OUTPUT"
 
       - name: Setup minimum supported Python
-        uses: actions/setup-python@v7
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
-          python-version: "3.9"
+          python-version: '3.9'
 
       - name: Check Python 3.9 syntax
         run: |
@@ -49,9 +83,7 @@ jobs:
           git ls-files -z --recurse-submodules '*.py' | xargs -0 python -m py_compile
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: 10.32.1
+        uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
@@ -83,3 +115,122 @@ jobs:
           test -d packages/cli/dist
           test -f packages/cli/dist/index.js
           echo "Build verification passed"
+
+      - name: Pack and verify fork release
+        if: github.ref_type == 'tag'
+        id: pack
+        env:
+          PACKAGE_VERSION: ${{ steps.tag.outputs.version }}
+        run: |
+          out="$RUNNER_TEMP/fork-release"
+          node packages/cli/scripts/pack-fork-release.js "$GITHUB_REPOSITORY" "$out"
+          (
+            cd "$out"
+            sha256sum trellis.tgz > SHA256SUMS
+            sha256sum --check --strict SHA256SUMS
+          )
+
+          smoke=$(mktemp -d "$RUNNER_TEMP/fork-smoke.XXXXXX")
+          npm install --global --offline --ignore-scripts --no-audit --no-fund \
+            --prefix "$smoke/install" --cache "$smoke/cache" "$out/trellis.tgz"
+          package="$smoke/install/lib/node_modules/@jla97/trellis"
+          jq -e --arg version "$PACKAGE_VERSION" --arg repo "$GITHUB_REPOSITORY" '
+            .name == "@jla97/trellis" and .version == $version and .private == true
+            and .trellisReleaseRepository == $repo
+            and .dependencies["@mindfoldhq/trellis-core"] == $version
+          ' "$package/package.json"
+          jq -e --arg version "$PACKAGE_VERSION" '.version == $version' \
+            "$package/node_modules/@mindfoldhq/trellis-core/package.json"
+
+          cli="$smoke/install/bin/trellis"
+          git init -q "$smoke/project"
+          (
+            cd "$smoke/project"
+            test "$("$cli" --version)" = "$PACKAGE_VERSION"
+            "$cli" upgrade --dry-run | grep -F \
+              "https://github.com/$GITHUB_REPOSITORY/releases/latest/download/trellis.tgz"
+            "$cli" init --codex --yes --user smoke
+            test -f .agents/skills/trellis-consolidate-spec/SKILL.md
+            test -f .agents/skills/trellis-consolidate-spec/references/report-templates.md
+            "$cli" update --dry-run | grep -F 'Already up to date!'
+          )
+          printf 'sha256=%s\n' "$(cut -d ' ' -f 1 "$out/SHA256SUMS")" >> "$GITHUB_OUTPUT"
+
+      - name: Upload verified fork assets
+        if: github.ref_type == 'tag'
+        id: upload
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: fork-release
+          path: |
+            ${{ runner.temp }}/fork-release/trellis.tgz
+            ${{ runner.temp }}/fork-release/SHA256SUMS
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 7
+
+  release:
+    if: >-
+      github.repository == 'JLA97/Trellis' && github.event_name == 'push' &&
+      github.ref_type == 'tag' && github.event.created && !github.event.deleted
+    needs: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    concurrency:
+      group: fork-release-${{ github.ref }}
+      cancel-in-progress: false
+    steps:
+      - name: Download assets from the build job
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          artifact-ids: ${{ needs.build.outputs.artifact_id }}
+          path: ${{ runner.temp }}/fork-release
+          merge-multiple: true
+          digest-mismatch: error
+
+      - name: Verify and publish GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.ref_name }}
+          EXPECTED_COMMIT: ${{ needs.build.outputs.commit }}
+          EXPECTED_SHA256: ${{ needs.build.outputs.sha256 }}
+        run: |
+          out="$RUNNER_TEMP/fork-release"
+          test "$GITHUB_REPOSITORY" = JLA97/Trellis
+          [[ "$EXPECTED_COMMIT" =~ ^[0-9a-f]{40}$ && "$EXPECTED_SHA256" =~ ^[0-9a-f]{64}$ ]]
+          for asset in trellis.tgz SHA256SUMS; do
+            test -f "$out/$asset" && test ! -L "$out/$asset" || exit 1
+          done
+          cmp "$out/SHA256SUMS" <(printf '%s  trellis.tgz\n' "$EXPECTED_SHA256")
+          (cd "$out" && sha256sum --check --strict SHA256SUMS)
+          test "$(gh api "repos/$GITHUB_REPOSITORY/commits/$RELEASE_TAG" --jq .sha)" = "$EXPECTED_COMMIT"
+
+          info="$RUNNER_TEMP/fork-release.json"
+          if ! gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" \
+            --json tagName,isDraft,assets > "$info"; then
+            printf 'Source commit `%s`.\n\nVerify `trellis.tgz` with the attached `SHA256SUMS`.\n' \
+              "$EXPECTED_COMMIT" > "$RUNNER_TEMP/fork-release-notes.md"
+            gh release create "$RELEASE_TAG" "$out/trellis.tgz" "$out/SHA256SUMS" \
+              --repo "$GITHUB_REPOSITORY" --verify-tag --draft --title "Trellis $RELEASE_TAG" \
+              --notes-file "$RUNNER_TEMP/fork-release-notes.md"
+            gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" \
+              --json tagName,isDraft,assets > "$info"
+          fi
+
+          jq -e --arg tag "$RELEASE_TAG" '
+            .tagName == $tag and ([.assets[].name] | sort) == ["SHA256SUMS", "trellis.tgz"]
+          ' "$info"
+          uploaded=$(mktemp -d "$RUNNER_TEMP/fork-uploaded.XXXXXX")
+          gh release download "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" \
+            --pattern trellis.tgz --pattern SHA256SUMS --dir "$uploaded"
+          cmp "$out/SHA256SUMS" "$uploaded/SHA256SUMS"
+          (cd "$uploaded" && sha256sum --check --strict SHA256SUMS)
+
+          if jq -e .isDraft "$info" >/dev/null; then
+            test "$(gh api "repos/$GITHUB_REPOSITORY/commits/$RELEASE_TAG" --jq .sha)" = "$EXPECTED_COMMIT"
+            gh release edit "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --draft=false --latest
+          fi
+          gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --json url,isDraft \
+            | jq -er 'select(.isDraft == false) | .url'

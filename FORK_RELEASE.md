@@ -15,7 +15,34 @@ Use the same command for subsequent installs. If you set `npm_config_prefix` to 
 
 ## Cut a release
 
-From a clean checkout of the commit to publish, use macOS or Linux with the pnpm version in the root `package.json`. Initialize submodules for the upstream tests.
+Push the commit to `JLA97/Trellis` and wait for branch CI. Then push a new tag
+of the form `fork-v<package-version>-<revision>` on that tested `main` commit.
+Use the exact version shared by the CLI and core manifests and the next positive
+fork revision. The CLI version stays aligned with the bundled Trellis templates.
+
+```sh
+git push origin main
+# After CI passes, tag the tested main commit. Use the next unused revision.
+tag=fork-v0.6.17-2
+git tag "$tag" origin/main
+git push origin "refs/tags/$tag"
+```
+
+The tag run repeats CI, packs `trellis.tgz`, writes `SHA256SUMS`, and tests a
+fresh offline installation. The release job checks the tag's commit and the
+assets, then publishes the draft as the latest GitHub Release. If publication
+fails after upload, rerun the failed jobs within seven days to reuse the verified
+build artifact and finish the draft. An existing
+release with different or incomplete assets requires review before retrying.
+Use a fresh revision for a different source commit.
+
+To verify a published download, save both assets in the same directory and run
+`shasum -a 256 -c SHA256SUMS`.
+
+## Build and verify locally
+
+From a clean checkout, use macOS or Linux with the pnpm version in the root
+`package.json`. Initialize submodules for the tests.
 
 ```sh
 git submodule update --init --recursive
@@ -45,14 +72,3 @@ git init -q "$out/project"
 ```
 
 Expect the update dry run to report `Already up to date!`.
-
-Use a fresh tag of the form `fork-v<upstream-version>-<revision>`. Push the tested commit and tag to the fork and attach the tarball and its checksum.
-
-```sh
-tag=fork-v0.6.17-1  # Set the version and next revision for this release.
-(cd "$out" && shasum -a 256 trellis.tgz > SHA256SUMS)
-git tag "$tag"
-git push --atomic origin HEAD:refs/heads/main "refs/tags/$tag"
-gh release create "$tag" "$out/trellis.tgz" "$out/SHA256SUMS" \
-  --repo JLA97/Trellis --verify-tag --latest --title "$tag" --generate-notes
-```

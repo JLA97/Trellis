@@ -42,12 +42,25 @@ The publish workflow must verify both packages after publish with:
 node packages/cli/scripts/release-preflight.js verify-npm --package all
 ```
 
-Personal releases use `fork-v<upstream-version>-<revision>` tags and a bundled
-`trellis.tgz` asset on GitHub Releases. The packer runs the workspace build and
-uses the lockfile for production dependencies. It changes only the staged
-manifest and retains the upstream CLI version for project compatibility. The
-official npm publish job is restricted to `mindfold-ai/Trellis`. See
-[FORK_RELEASE.md](../../../../FORK_RELEASE.md) for build and verification commands.
+## Personal GitHub Releases
+
+In `JLA97/Trellis`, `.github/workflows/ci.yml` runs branch CI for ordinary
+pushes. A new `fork-v<package-version>-<revision>` tag runs the same checks and
+requires the exact shared CLI/core version, a positive revision, and a commit
+reachable from the fork's `main`.
+
+The read-only build job uses `pack-fork-release.js` to bundle the CLI, matching
+workspace core, and lockfile production dependencies into `trellis.tgz`. It
+checks the installed manifest and runs a fresh offline install and Codex smoke
+test. The separate release job uses `contents: write` to publish only the two
+verified assets, `trellis.tgz` and `SHA256SUMS`. It checks the tag and downloads
+the uploaded assets for verification before publishing the draft. Existing
+release assets are kept intact on reruns.
+
+The fork keeps the upstream package version for template compatibility. Its
+release revision belongs in the Git tag. The npm publish workflow is scoped to
+`mindfold-ai/Trellis`. See [FORK_RELEASE.md](../../../../FORK_RELEASE.md) for
+triggering a release and verifying the download.
 
 ---
 
