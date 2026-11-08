@@ -48,7 +48,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
-          node-version: '22'
+          node-version: '24'
           package-manager-cache: false
 
       - name: Validate fork tag and commit
@@ -70,7 +70,7 @@ jobs:
           test "$(git rev-parse "refs/tags/${RELEASE_TAG}^{commit}")" = "$commit"
           test "$(git rev-parse "${GITHUB_SHA}^{commit}")" = "$commit"
           git merge-base --is-ancestor "$commit" refs/remotes/origin/main
-          printf 'commit=%s\nversion=%s\n' "$commit" "$version" >> "$GITHUB_OUTPUT"
+          printf 'commit=%s\n' "$commit" >> "$GITHUB_OUTPUT"
 
       - name: Setup minimum supported Python
         uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
@@ -117,13 +117,12 @@ jobs:
           echo "Build verification passed"
 
       - name: Pack and verify fork release
-        if: github.ref_type == 'tag'
+        if: github.repository == 'JLA97/Trellis' && github.event_name == 'push'
         id: pack
-        env:
-          PACKAGE_VERSION: ${{ steps.tag.outputs.version }}
         run: |
+          package_version=$(node -p 'require("./packages/cli/package.json").version')
           out="$RUNNER_TEMP/fork-release"
-          node packages/cli/scripts/pack-fork-release.js "$GITHUB_REPOSITORY" "$out"
+          npm_config_loglevel=verbose node packages/cli/scripts/pack-fork-release.js "$GITHUB_REPOSITORY" "$out"
           (
             cd "$out"
             sha256sum trellis.tgz > SHA256SUMS
@@ -134,19 +133,19 @@ jobs:
           npm install --global --offline --ignore-scripts --no-audit --no-fund \
             --prefix "$smoke/install" --cache "$smoke/cache" "$out/trellis.tgz"
           package="$smoke/install/lib/node_modules/@jla97/trellis"
-          jq -e --arg version "$PACKAGE_VERSION" --arg repo "$GITHUB_REPOSITORY" '
+          jq -e --arg version "$package_version" --arg repo "$GITHUB_REPOSITORY" '
             .name == "@jla97/trellis" and .version == $version and .private == true
             and .trellisReleaseRepository == $repo
             and .dependencies["@mindfoldhq/trellis-core"] == $version
           ' "$package/package.json"
-          jq -e --arg version "$PACKAGE_VERSION" '.version == $version' \
+          jq -e --arg version "$package_version" '.version == $version' \
             "$package/node_modules/@mindfoldhq/trellis-core/package.json"
 
           cli="$smoke/install/bin/trellis"
           git init -q "$smoke/project"
           (
             cd "$smoke/project"
-            test "$("$cli" --version)" = "$PACKAGE_VERSION"
+            test "$("$cli" --version)" = "$package_version"
             "$cli" upgrade --dry-run | grep -F \
               "https://github.com/$GITHUB_REPOSITORY/releases/latest/download/trellis.tgz"
             "$cli" init --codex --yes --user smoke

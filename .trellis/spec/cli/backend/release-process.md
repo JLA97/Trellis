@@ -49,7 +49,8 @@ pushes. A new `fork-v<package-version>-<revision>` tag runs the same checks and
 requires the exact shared CLI/core version, a positive revision, and a commit
 reachable from the fork's `main`.
 
-The read-only build job uses `pack-fork-release.js` to bundle the CLI, matching
+On fork branch pushes and release tags, the read-only build job uses
+`pack-fork-release.js` to bundle the CLI, matching
 workspace core, and lockfile production dependencies into `trellis.tgz`. It
 checks the installed manifest and runs a fresh offline install and Codex smoke
 test. The separate release job uses `contents: write` to publish only the two

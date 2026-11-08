@@ -28,9 +28,9 @@ git tag "$tag" origin/main
 git push origin "refs/tags/$tag"
 ```
 
-The tag run repeats CI, packs `trellis.tgz`, writes `SHA256SUMS`, and tests a
-fresh offline installation. The release job checks the tag's commit and the
-assets, then publishes the draft as the latest GitHub Release. If publication
+Fork branch pushes and release tags both pack `trellis.tgz`, write `SHA256SUMS`,
+and test a fresh offline installation. On a release tag, the release job checks
+the commit and assets, then publishes the draft as the latest GitHub Release. If publication
 fails after upload, rerun the failed jobs within seven days to reuse the verified
 build artifact and finish the draft. An existing
 release with different or incomplete assets requires review before retrying.
