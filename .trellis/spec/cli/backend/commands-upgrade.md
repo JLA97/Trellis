@@ -30,9 +30,26 @@ Behavior:
   dist-tags or versions such as `latest`, `beta`, `rc`, or `0.6.0-beta.8`.
 - `--dry-run` prints the exact npm command and exits without changing anything.
 
-The implementation does not detect or preserve the original installer. Trellis
-is published as an npm package, so npm is the upgrade backend even when the user
+The implementation uses npm's configured global prefix even when the user
 installed Node through pnpm, Homebrew, Volta, proto, or another manager.
+
+### GitHub Release packages
+
+The fork packer sets `trellisReleaseRepository` to a GitHub `owner/repository`
+in the staged CLI manifest. For this package, `upgrade` and `upgrade --tag latest`
+install `https://github.com/<repository>/releases/latest/download/trellis.tgz`
+with `--prefer-online` so npm revalidates the mutable URL. An explicit release tag
+installs `/releases/download/<tag>/trellis.tgz`. Use `npm_config_prefix` when the
+fork was installed to a custom prefix.
+
+`trellis update` prints the release page and skips the npm version lookup for
+this package. Project version comparison still uses the CLI version.
+
+Reject malformed repository names and tags before preparing the command. Unit
+tests cover the default URL, the pinned URL, and rejection of shell metacharacters.
+The release smoke test must also run `upgrade --dry-run` from the installed tarball
+to verify the staged manifest is read. The npm registry behavior is the default
+when the field is absent.
 
 ---
 

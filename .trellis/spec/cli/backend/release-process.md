@@ -42,6 +42,13 @@ The publish workflow must verify both packages after publish with:
 node packages/cli/scripts/release-preflight.js verify-npm --package all
 ```
 
+Personal releases use `fork-v<upstream-version>-<revision>` tags and a bundled
+`trellis.tgz` asset on GitHub Releases. The packer runs the workspace build and
+uses the lockfile for production dependencies. It changes only the staged
+manifest and retains the upstream CLI version for project compatibility. The
+official npm publish job is restricted to `mindfold-ai/Trellis`. See
+[FORK_RELEASE.md](../../../../FORK_RELEASE.md) for build and verification commands.
+
 ---
 
 ## Version invariants

@@ -1,6 +1,10 @@
 import { spawnSync } from "node:child_process";
 import chalk from "chalk";
-import { PACKAGE_NAME, VERSION } from "../constants/version.js";
+import {
+  PACKAGE_NAME,
+  RELEASE_REPOSITORY,
+  VERSION,
+} from "../constants/version.js";
 
 export interface UpgradeOptions {
   tag?: string;
@@ -35,6 +39,8 @@ export interface UpgradeCommandPlan {
 }
 
 const NPM_TAG_RE = /^[A-Za-z0-9][A-Za-z0-9._-]*$/;
+const GITHUB_REPOSITORY_RE =
+  /^[A-Za-z0-9][A-Za-z0-9-]*\/[A-Za-z0-9][A-Za-z0-9._-]*$/;
 
 export function resolveUpgradeTag(
   currentVersion: string = VERSION,
@@ -64,10 +70,33 @@ export function buildUpgradeCommand(
   options: UpgradeOptions = {},
   currentVersion: string = VERSION,
   platform: NodeJS.Platform = process.platform,
+  releaseRepository: string | undefined = RELEASE_REPOSITORY,
 ): UpgradeCommandPlan {
-  const tag = resolveUpgradeTag(currentVersion, options.tag);
-  const target = `${PACKAGE_NAME}@${tag}`;
-  const npmArgs = ["install", "-g", target];
+  const defaultTag = releaseRepository === undefined ? undefined : "latest";
+  const tag = resolveUpgradeTag(
+    currentVersion,
+    options.tag?.length ? options.tag : defaultTag,
+  );
+  let target = `${PACKAGE_NAME}@${tag}`;
+  const npmArgs = ["install", "-g"];
+  if (releaseRepository !== undefined) {
+    if (
+      typeof releaseRepository !== "string" ||
+      !GITHUB_REPOSITORY_RE.test(releaseRepository)
+    ) {
+      throw new Error(
+        "Invalid GitHub release repository. Expected owner/repository.",
+      );
+    }
+    const releasePath =
+      tag === "latest" ? "latest/download" : `download/${tag}`;
+    target = `https://github.com/${releaseRepository}/releases/${releasePath}/trellis.tgz`;
+    if (tag === "latest") {
+      npmArgs.push("--prefer-online");
+    }
+  }
+  npmArgs.push(target);
+
   const displayCommand = `npm ${npmArgs.join(" ")}`;
   const spawnOptions: SpawnOptions = { stdio: "inherit", shell: false };
 

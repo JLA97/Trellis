@@ -59,6 +59,50 @@ describe("upgrade command", () => {
     });
   });
 
+  it("checks the latest fork release even from a prerelease build", () => {
+    const target =
+      "https://github.com/JLA97/Trellis/releases/latest/download/trellis.tgz";
+
+    expect(
+      buildUpgradeCommand({}, "0.7.0-beta.4", "darwin", "JLA97/Trellis"),
+    ).toMatchObject({
+      command: "npm",
+      args: ["install", "-g", "--prefer-online", target],
+      spawnOptions: { stdio: "inherit", shell: false },
+      target,
+      tag: "latest",
+    });
+  });
+
+  it("pins a fork release by tag on Windows", () => {
+    const tag = "fork-v0.6.17-1";
+    const target = `https://github.com/JLA97/Trellis/releases/download/${tag}/trellis.tgz`;
+
+    expect(
+      buildUpgradeCommand({ tag }, "0.6.17", "win32", "JLA97/Trellis"),
+    ).toMatchObject({
+      command: "cmd.exe",
+      args: ["/d", "/s", "/c", `npm install -g ${target}`],
+      spawnOptions: { stdio: "inherit", shell: false },
+      target,
+      tag,
+    });
+  });
+
+  it("rejects unsafe repository names and release tags before spawning npm", () => {
+    expect(() =>
+      buildUpgradeCommand({}, "0.6.17", "win32", "JLA97/Trellis&echo unsafe"),
+    ).toThrow(/Invalid GitHub release repository/);
+    expect(() =>
+      buildUpgradeCommand(
+        { tag: "fork-v0.6.17-1&echo unsafe" },
+        "0.6.17",
+        "win32",
+        "JLA97/Trellis",
+      ),
+    ).toThrow(/Invalid npm tag\/version/);
+  });
+
   it("dry-run does not execute npm", async () => {
     const log = vi.spyOn(console, "log").mockImplementation(() => undefined);
     const runner = vi.fn();

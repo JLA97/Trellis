@@ -14,7 +14,11 @@ import {
 } from "../commands/workflow.js";
 import { registerChannelCommand } from "../commands/channel/index.js";
 import { DIR_NAMES } from "../constants/paths.js";
-import { PACKAGE_NAME, VERSION } from "../constants/version.js";
+import {
+  PACKAGE_NAME,
+  RELEASE_REPOSITORY,
+  VERSION,
+} from "../constants/version.js";
 import { compareVersions } from "../utils/compare-versions.js";
 import { getConfiguredPlatforms } from "../configurators/index.js";
 import { AI_TOOLS } from "../types/ai-tools.js";
@@ -189,7 +193,9 @@ program
   .description("Upgrade the global Trellis CLI package")
   .option(
     "--tag <tag>",
-    "npm dist-tag or version to install (default follows current channel: latest, beta, or rc)",
+    RELEASE_REPOSITORY
+      ? "GitHub release tag to install (default: latest)"
+      : "npm dist-tag or version to install (default follows current channel: latest, beta, or rc)",
   )
   .option("--dry-run", "Print the install command without running it")
   .action(async (options: Record<string, unknown>) => {

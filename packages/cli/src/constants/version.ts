@@ -12,6 +12,7 @@ import { fileURLToPath } from "node:url";
 interface PackageJson {
   name: string;
   version: string;
+  trellisReleaseRepository?: string;
 }
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -22,3 +23,4 @@ const packageJson: PackageJson = JSON.parse(
 
 export const VERSION: string = packageJson.version;
 export const PACKAGE_NAME: string = packageJson.name;
+export const RELEASE_REPOSITORY = packageJson.trellisReleaseRepository;

@@ -6,7 +6,11 @@ import inquirer from "inquirer";
 
 import { DIR_NAMES, FILE_NAMES, PATHS } from "../constants/paths.js";
 import type { AITool } from "../types/ai-tools.js";
-import { VERSION, PACKAGE_NAME } from "../constants/version.js";
+import {
+  VERSION,
+  PACKAGE_NAME,
+  RELEASE_REPOSITORY,
+} from "../constants/version.js";
 import {
   getMigrationsForVersion,
   getAllMigrations,
@@ -2106,13 +2110,15 @@ export async function update(options: UpdateOptions): Promise<void> {
   console.log(chalk.cyan("\nTrellis Update"));
   console.log(chalk.cyan("══════════════\n"));
 
-  // Set up proxy before any network calls (npm version check)
+  // Set up proxy before any network calls.
   setupProxy();
 
   // Get versions
   const projectVersion = getInstalledVersion(cwd);
   const cliVersion = VERSION;
-  const latestNpmVersion = await getLatestNpmVersion();
+  const latestNpmVersion = RELEASE_REPOSITORY
+    ? null
+    : await getLatestNpmVersion();
 
   // Version comparison
   const cliVsProject = compareVersions(cliVersion, projectVersion);
@@ -2123,7 +2129,11 @@ export async function update(options: UpdateOptions): Promise<void> {
   // Display versions with context
   console.log(`Project version: ${chalk.white(projectVersion)}`);
   console.log(`CLI version:     ${chalk.white(cliVersion)}`);
-  if (latestNpmVersion) {
+  if (RELEASE_REPOSITORY) {
+    console.log(
+      `CLI releases:    https://github.com/${RELEASE_REPOSITORY}/releases`,
+    );
+  } else if (latestNpmVersion) {
     console.log(`Latest on npm:   ${chalk.white(latestNpmVersion)}`);
   } else {
     console.log(chalk.gray("Latest on npm:   (unable to fetch)"));
