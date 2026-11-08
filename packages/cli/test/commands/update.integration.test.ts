@@ -725,6 +725,60 @@ describe("update() integration", () => {
     );
   });
 
+  it("installs the spec consolidation skill on update of an existing Codex project", async () => {
+    await init({ yes: true, codex: true });
+
+    const skill = ".agents/skills/trellis-consolidate-spec";
+    const hashesBefore = readHashesV2(hashFilePath());
+    const skillFiles = [
+      `${skill}/SKILL.md`,
+      `${skill}/references/audit.md`,
+      `${skill}/references/replay.md`,
+      `${skill}/references/apply-and-verify.md`,
+      `${skill}/references/report-templates.md`,
+    ];
+    const expected = new Map(
+      skillFiles.map((file) => [file, readProjectFile(file)]),
+    );
+    fs.rmSync(projectFile(skill), { recursive: true });
+    writeHashesV2(
+      hashFilePath(),
+      Object.fromEntries(
+        Object.entries(hashesBefore).filter(([file]) => !expected.has(file)),
+      ),
+    );
+
+    await update({ skipAll: true });
+
+    const hashesAfter = readHashesV2(hashFilePath());
+    for (const [file, content] of expected) {
+      expect(readProjectFile(file)).toBe(content);
+      expect(hashesAfter[file]).toBe(computeHash(content));
+    }
+  });
+
+  it("preserves an existing local skill and an edited bundled reference on update", async () => {
+    await init({ yes: true, codex: true });
+
+    const skill = ".agents/skills/trellis-consolidate-spec";
+    const entry = `${skill}/SKILL.md`;
+    const reference = `${skill}/references/audit.md`;
+    const hashesBefore = readHashesV2(hashFilePath());
+    const localEntry = "# Existing project skill\n";
+    const editedReference = `${readProjectFile(reference)}\nProject-specific audit notes.\n`;
+    writeProjectFile(entry, localEntry);
+    writeProjectFile(reference, editedReference);
+    writeHashesV2(hashFilePath(), removeHashEntry(hashesBefore, entry));
+
+    await update({ skipAll: true });
+
+    expect(readProjectFile(entry)).toBe(localEntry);
+    expect(readProjectFile(reference)).toBe(editedReference);
+    const hashesAfter = readHashesV2(hashFilePath());
+    expect(hashesAfter[entry]).toBeUndefined();
+    expect(hashesAfter[reference]).toBe(hashesBefore[reference]);
+  });
+
   it("#7 createNew creates .new copy without overwriting original", async () => {
     await setupProject();
 

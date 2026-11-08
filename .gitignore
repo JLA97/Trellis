@@ -43,6 +43,7 @@ build/Release
 # Dependency directories
 node_modules/
 jspm_packages/
+/.pnpm-store/
 
 # Snowpack dependency directory (https://snowpack.dev/)
 web_modules/
@@ -150,6 +151,10 @@ vite.config.ts.timestamp-*
 .trellis/.developer
 .trellis/hooks.local.json
 .gitnexus/
+
+# Personal fork work records
+/.trellis/workspace/JLA97/
+/.trellis/tasks/archive/2026-11/11-08-personal-trellis-release/
 
 # Multi-agent temp files
 .session-id

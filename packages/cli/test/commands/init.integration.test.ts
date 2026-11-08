@@ -147,6 +147,45 @@ describe("init() integration", () => {
     ).toBe(true);
   });
 
+  it.each([
+    {
+      mode: "default",
+      options: {},
+      roots: [".claude/skills", ".cursor/skills"],
+    },
+    { mode: "Codex", options: { codex: true }, roots: [".agents/skills"] },
+  ])("installs and tracks the spec consolidation skill on $mode init", async ({
+    options,
+    roots,
+  }) => {
+    await init({ yes: true, ...options });
+
+    const { hashes } = JSON.parse(
+      fs.readFileSync(
+        path.join(tmpDir, DIR_NAMES.WORKFLOW, ".template-hashes.json"),
+        "utf-8",
+      ),
+    ) as { hashes: Record<string, string> };
+    const files = [
+      "SKILL.md",
+      "references/audit.md",
+      "references/replay.md",
+      "references/apply-and-verify.md",
+      "references/report-templates.md",
+    ];
+    for (const root of roots) {
+      for (const file of files) {
+        const relativePath = `${root}/trellis-consolidate-spec/${file}`;
+        const content = fs.readFileSync(
+          path.join(tmpDir, relativePath),
+          "utf-8",
+        );
+        expect(content.trim()).not.toBe("");
+        expect(hashes[relativePath]).toBe(computeHash(content));
+      }
+    }
+  });
+
   it("#1a writes .gitattributes with the journal merge=union rule (#415)", async () => {
     await init({ yes: true });
 

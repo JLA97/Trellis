@@ -49,6 +49,7 @@ import {
 
 const BUNDLED_SKILL_NAMES = [
   "trellis-channel",
+  "trellis-consolidate-spec",
   "trellis-meta",
   "trellis-session-insight",
   "trellis-spec-bootstrap",
