@@ -1,6 +1,7 @@
 import { execFileSync } from "node:child_process";
 import {
   copyFileSync,
+  cpSync,
   linkSync,
   mkdirSync,
   mkdtempSync,
@@ -24,13 +25,17 @@ const stagingDirectory = mkdtempSync(join(outputDirectory, ".trellis-pack-"));
 const deployment = join(stagingDirectory, "package");
 
 try {
+  const deployed = join(stagingDirectory, "deployed");
   execFileSync("pnpm", ["build"], { cwd: root, stdio: "inherit" });
   execFileSync("pnpm", [
     "--config.inject-workspace-packages=true",
     "--config.node-linker=hoisted",
     "--filter", "@mindfoldhq/trellis",
-    "deploy", "--prod", deployment,
+    "deploy", "--prod", deployed,
   ], { cwd: root, stdio: "inherit", env: { ...process.env, HUSKY: "0" } });
+
+  // pnpm can share file inodes. npm skips hard-link entries during extraction.
+  cpSync(deployed, deployment, { recursive: true, verbatimSymlinks: true });
 
   const manifestPath = join(deployment, "package.json");
   const manifest = JSON.parse(readFileSync(manifestPath, "utf8"));
