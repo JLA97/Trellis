@@ -86,19 +86,16 @@ to actual changed paths and tests. When historical evidence is insufficient,
 finish a limited audit using the declared routes and available content evidence.
 State which conclusions require replay or additional evidence.
 
-## Rank evidence
+## Assess evidence for rule changes
 
-1. Explicit user requirements and accepted architecture, product, or project
-   decisions.
-2. Public behavior and tests that encode the intended contract.
-3. Recent accepted work artifacts, migrations, and release decisions.
-4. Repeated patterns across current source files.
-5. Individual implementation examples.
-6. Generic ecosystem practice when the project lacks relevant local evidence.
+Read the [shared spec admission rules](admission.md) before proposing new or
+stronger guidance. If the reference is unavailable, omit those changes from
+the plan. Keep content judgment separate from the approval to edit.
 
-Record any exception with its evidence. Lower-ranked evidence can expose drift.
-Use higher-ranked evidence to settle normative intent. New conventions and
-stronger rules require supporting evidence and explicit approval.
+Missing evidence alone does not invalidate an existing rule. Keep it in place
+without broadening its reach. Propose removal or narrowing only when evidence
+shows which scope or version is wrong or superseded. Treat departures from a
+still-binding rule as implementation drift.
 
 ## Audit content and structure
 

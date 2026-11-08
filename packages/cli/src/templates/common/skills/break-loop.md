@@ -51,15 +51,9 @@ What broader problems does this bug reveal?
 - **Process Flaw**: Is there a development process improvement?
 - **Knowledge Gap**: Is the team missing some understanding?
 
-### 5. Knowledge Capture
+### 5. Follow-up (if useful)
 
-Solidify insights into the system:
-
-- [ ] Update `.trellis/spec/guides/` thinking guides
-- [ ] Update relevant `.trellis/spec/` docs
-- [ ] Create issue record (if applicable)
-- [ ] Create feature ticket for root fix
-- [ ] Update check guidelines if needed
+Identify any concrete follow-up supported by the root cause and evidence.
 
 ---
 
@@ -89,8 +83,8 @@ Please output analysis in this format:
 - **Design Improvement**: [Architecture-level suggestions]
 - **Process Improvement**: [Development process suggestions]
 
-### 5. Knowledge Capture
-- [ ] [Documents to update / tickets to create]
+### 5. Follow-up (if useful)
+- [Action and supporting evidence]
 ```
 
 ---
@@ -167,18 +161,9 @@ Never express binary certainty when evidence is incomplete. Use "most likely", "
 
 ---
 
-## After Analysis: Immediate Actions
+## After Analysis
 
-**IMPORTANT**: After completing the analysis above, you MUST immediately:
-
-1. **Update spec/guides** - Don't just list TODOs, actually update the relevant files:
-   - If it's a cross-platform issue → update `cross-platform-thinking-guide.md`
-   - If it's a cross-layer issue → update `cross-layer-thinking-guide.md`
-   - If it's a code reuse issue → update `code-reuse-thinking-guide.md`
-   - If it's domain-specific → update `backend/*.md` or `frontend/*.md`
-
-2. **Sync templates** - After updating `.trellis/spec/`, sync to `src/templates/markdown/spec/`
-
-3. **Commit the spec updates** - This is the primary output, not just the analysis text
-
-> **The analysis is worthless if it stays in chat. The value is in the updated specs.**
+The retrospective is complete with the root cause, evidence, and prevention
+options. If the findings suggest a durable project constraint, use
+`trellis-update-spec` to decide whether it warrants a spec update. A
+retrospective can finish without any spec edits or candidate record.

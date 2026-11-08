@@ -53,9 +53,8 @@ Run the project's lint, type-check, and test commands. Fix any failures before p
 
 ### Spec Sync
 
-- [ ] Does `.trellis/spec/` need updates? (new patterns, conventions, lessons learned)
-
-> "If I fixed a bug or discovered something non-obvious, should I document it so future me won't hit the same issue?" → If YES, update the relevant spec doc.
+Leave any new or stronger spec guidance for Phase 3.3. `trellis-update-spec`
+applies the shared admission rules and handles any qualifying write.
 
 ### Scope Discipline
 
