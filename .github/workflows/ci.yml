@@ -122,7 +122,7 @@ jobs:
         run: |
           package_version=$(node -p 'require("./packages/cli/package.json").version')
           out="$RUNNER_TEMP/fork-release"
-          npm_config_loglevel=verbose node packages/cli/scripts/pack-fork-release.js "$GITHUB_REPOSITORY" "$out"
+          node packages/cli/scripts/pack-fork-release.js "$GITHUB_REPOSITORY" "$out"
           (
             cd "$out"
             sha256sum trellis.tgz > SHA256SUMS
@@ -138,8 +138,18 @@ jobs:
             and .trellisReleaseRepository == $repo
             and .dependencies["@mindfoldhq/trellis-core"] == $version
           ' "$package/package.json"
-          jq -e --arg version "$package_version" '.version == $version' \
-            "$package/node_modules/@mindfoldhq/trellis-core/package.json"
+          node - "$package" <<'NODE'
+          const { readFileSync } = require('node:fs');
+          const { join } = require('node:path');
+          const root = process.argv[2];
+          const manifest = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8'));
+          for (const [name, version] of Object.entries(manifest.dependencies)) {
+            const installed = JSON.parse(readFileSync(join(root, 'node_modules', name, 'package.json'), 'utf8'));
+            if (installed.version !== version) {
+              throw new Error(`Bundled ${name} version ${installed.version} does not match ${version}`);
+            }
+          }
+          NODE
 
           cli="$smoke/install/bin/trellis"
           git init -q "$smoke/project"

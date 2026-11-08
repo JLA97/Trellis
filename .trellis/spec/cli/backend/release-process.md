@@ -50,8 +50,10 @@ requires the exact shared CLI/core version, a positive revision, and a commit
 reachable from the fork's `main`.
 
 On fork branch pushes and release tags, the read-only build job uses
-`pack-fork-release.js` to bundle the CLI, matching
-workspace core, and lockfile production dependencies into `trellis.tgz`. It
+`pack-fork-release.js` to archive the CLI, matching workspace core, and lockfile
+production dependencies under the npm `package/` root in `trellis.tgz`. The packer
+pins each direct dependency to the version in the bundled module and omits pnpm's
+generated metadata and command links. CI
 checks the installed manifest and runs a fresh offline install and Codex smoke
 test. The separate release job uses `contents: write` to publish only the two
 verified assets, `trellis.tgz` and `SHA256SUMS`. It checks the tag and downloads

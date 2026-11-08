@@ -18,12 +18,14 @@ Use the same command for subsequent installs. If you set `npm_config_prefix` to 
 Push the commit to `JLA97/Trellis` and wait for branch CI. Then push a new tag
 of the form `fork-v<package-version>-<revision>` on that tested `main` commit.
 Use the exact version shared by the CLI and core manifests and the next positive
-fork revision. The CLI version stays aligned with the bundled Trellis templates.
+fork revision. Set `REVISION` to the next unused number for that version. The
+CLI version stays aligned with the bundled Trellis templates.
 
 ```sh
 git push origin main
 # After CI passes, tag the tested main commit. Use the next unused revision.
-tag=fork-v0.6.17-2
+version=$(node -p 'require("./packages/cli/package.json").version')
+tag="fork-v${version}-${REVISION:?set REVISION to the next unused fork revision}"
 git tag "$tag" origin/main
 git push origin "refs/tags/$tag"
 ```
@@ -41,8 +43,8 @@ To verify a published download, save both assets in the same directory and run
 
 ## Build and verify locally
 
-From a clean checkout, use macOS or Linux with the pnpm version in the root
-`package.json`. Initialize submodules for the tests.
+From a clean checkout, use macOS or Linux with `tar` and the pnpm version in
+the root `package.json`. Initialize submodules for the tests.
 
 ```sh
 git submodule update --init --recursive

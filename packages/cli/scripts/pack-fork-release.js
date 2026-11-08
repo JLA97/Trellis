@@ -34,13 +34,12 @@ try {
 
   const manifestPath = join(deployment, "package.json");
   const manifest = JSON.parse(readFileSync(manifestPath, "utf8"));
-  for (const [name, version] of Object.entries(manifest.dependencies)) {
-    if (version.startsWith("workspace:")) {
-      const installed = JSON.parse(
-        readFileSync(join(deployment, "node_modules", name, "package.json"), "utf8"),
-      );
-      manifest.dependencies[name] = installed.version;
-    }
+  // Deploy can encode workspace paths and peer suffixes in its manifest.
+  for (const name of Object.keys(manifest.dependencies)) {
+    const installed = JSON.parse(
+      readFileSync(join(deployment, "node_modules", name, "package.json"), "utf8"),
+    );
+    manifest.dependencies[name] = installed.version;
   }
   manifest.name = `@${repository.split("/")[0].toLowerCase()}/trellis`;
   manifest.repository.url = `https://github.com/${repository}.git`;
@@ -59,12 +58,21 @@ try {
     copyFileSync(join(root, file), join(deployment, file));
   }
 
-  const [{ filename }] = JSON.parse(execFileSync("npm", [
-    "pack", "--ignore-scripts", "--json", "--pack-destination", stagingDirectory,
-    "--cache", join(stagingDirectory, "npm-cache"),
-  ], { cwd: deployment, encoding: "utf8" }));
+  // The hoisted production tree already contains every bundled dependency.
+  // Archive it directly to avoid asking npm pack to resolve the tree again.
+  const archive = join(stagingDirectory, "trellis.tgz");
+  execFileSync("tar", [
+    "-czf", archive,
+    "--exclude=*/node_modules/.bin",
+    "--exclude=*/node_modules/.pnpm",
+    "--exclude=*/node_modules/.modules.yaml",
+    "-C", stagingDirectory,
+    "package/package.json",
+    ...manifest.files.map((file) => `package/${file}`),
+    "package/node_modules",
+  ], { stdio: "inherit", env: { ...process.env, COPYFILE_DISABLE: "1" } });
   const artifact = join(outputDirectory, "trellis.tgz");
-  linkSync(join(stagingDirectory, filename), artifact);
+  linkSync(archive, artifact);
   console.log(artifact);
 } finally {
   rmSync(stagingDirectory, { recursive: true, force: true });
