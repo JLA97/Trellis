@@ -1617,7 +1617,7 @@ describe("update() integration", () => {
     hashes[PATHS.WORKFLOW_GUIDE_FILE] = computeHash(staleWorkflow);
     writeHashesV2(hashFile, hashes);
 
-    await update({ force: true });
+    await update({ skipAll: true });
 
     const updated = fs.readFileSync(workflowPath, "utf-8");
     expect(updated).toBe(replacePythonCommandLiterals(workflowMdTemplate));
@@ -1635,6 +1635,28 @@ describe("update() integration", () => {
     expect(readHashesV2(hashFile)[PATHS.WORKFLOW_GUIDE_FILE]).toBe(
       computeHash(updated),
     );
+  });
+
+  it("preserves the content and tracked hash of a locally edited native workflow", async () => {
+    await setupProject();
+
+    const workflowPath = path.join(tmpDir, PATHS.WORKFLOW_GUIDE_FILE);
+    const hashFile = path.join(
+      tmpDir,
+      DIR_NAMES.WORKFLOW,
+      ".template-hashes.json",
+    );
+    const original = fs.readFileSync(workflowPath, "utf-8");
+    const tracked = readHashesV2(hashFile)[PATHS.WORKFLOW_GUIDE_FILE];
+    expect(tracked).toBe(computeHash(original));
+
+    const edited = `${original}\nLocal workflow note.\n`;
+    fs.writeFileSync(workflowPath, edited, "utf-8");
+
+    await update({ skipAll: true });
+
+    expect(fs.readFileSync(workflowPath, "utf-8")).toBe(edited);
+    expect(readHashesV2(hashFile)[PATHS.WORKFLOW_GUIDE_FILE]).toBe(tracked);
   });
 
   describe("receipt repair for files already identical to their template", () => {

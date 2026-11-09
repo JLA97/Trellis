@@ -131,15 +131,11 @@ describe("trellis template constants", () => {
     expect(workflowMdTemplate).toContain("#");
   });
 
-  it("marketplace native workflow mirror matches the bundled workflow", () => {
-    const repoRoot = fs.existsSync(path.join(process.cwd(), "marketplace"))
-      ? process.cwd()
-      : path.resolve(process.cwd(), "../..");
-    const marketplaceNative = fs.readFileSync(
-      path.join(repoRoot, "marketplace/workflows/native/workflow.md"),
-      "utf-8",
-    );
-    expect(marketplaceNative).toBe(workflowMdTemplate);
+  it("bundled native requires spec admission review and allows zero writes", () => {
+    expect(workflowMdTemplate).toMatch(/^#### 3\.3 .+`\[required · once\]`$/m);
+    const review = stepSection("3.3");
+    expect(review).toContain("`trellis-update-spec`");
+    expect(review).toContain("unchanged completes this step");
   });
 
   it("marketplace TDD workflow planning breadcrumbs include behavior gates", () => {

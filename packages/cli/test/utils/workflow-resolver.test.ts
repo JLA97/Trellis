@@ -21,11 +21,15 @@ afterEach(() => {
 
 describe("resolveWorkflowTemplate(native)", () => {
   it("returns the bundled native workflow content without network access", async () => {
-    // No fetch stub installed — proves we never call the network for native.
-    const resolved = await resolveWorkflowTemplate(NATIVE_WORKFLOW_ID);
+    const fetchSpy = vi.fn();
+    vi.stubGlobal("fetch", fetchSpy);
+    const resolved = await resolveWorkflowTemplate(NATIVE_WORKFLOW_ID, {
+      source: "invalid-registry-source",
+    });
     expect(resolved.id).toBe(NATIVE_WORKFLOW_ID);
     expect(resolved.source).toBe("bundled");
     expect(resolved.content).toBe(workflowMdTemplate);
+    expect(fetchSpy).not.toHaveBeenCalled();
   });
 });
 
@@ -175,6 +179,12 @@ describe("listWorkflowTemplates", () => {
       version: 1,
       templates: [
         {
+          id: NATIVE_WORKFLOW_ID,
+          type: "workflow",
+          name: "Marketplace Native Reference",
+          path: "workflows/native/workflow.md",
+        },
+        {
           id: "tdd",
           type: "workflow",
           name: "TDD Workflow",
@@ -203,7 +213,9 @@ describe("listWorkflowTemplates", () => {
 
     const { templates } = await listWorkflowTemplates();
     const ids = templates.map((t) => t.id);
-    expect(ids).toContain(NATIVE_WORKFLOW_ID);
+    expect(templates.filter((t) => t.id === NATIVE_WORKFLOW_ID)).toEqual([
+      expect.objectContaining({ source: "bundled" }),
+    ]);
     expect(ids).toContain("tdd");
     expect(ids).toContain("channel-driven-subagent-dispatch");
     expect(ids).not.toContain("electron-fullstack");

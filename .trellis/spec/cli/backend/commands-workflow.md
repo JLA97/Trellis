@@ -128,8 +128,9 @@ Native source-of-truth contract:
 
 - `packages/cli/src/templates/trellis/workflow.md` is the source of truth for
   native workflow.
-- If `marketplace/workflows/native/workflow.md` exists, tests must enforce byte
-  identity with the bundled native template.
+- The fork's bundled native workflow may differ from the upstream Marketplace
+  reference at `marketplace/workflows/native/workflow.md`. Verify the bundled
+  content and its installed behavior independently of that reference.
 
 ### 4. Validation & Error Matrix
 
@@ -168,7 +169,8 @@ Unit tests:
 
 Integration tests:
 
-- `init --workflow native` keeps `.trellis/workflow.md` hash-tracked.
+- Default `init` and `init --workflow native` install the bundled content and
+  track its hash.
 - `init --workflow tdd` writes marketplace content and removes the hash.
 - `init --workflow-source <source> --workflow custom-id` writes custom content.
 - `init --workflow missing-id` rejects.
@@ -178,9 +180,11 @@ Integration tests:
   true.
 - `--create-new` writes a generated `workflow.md.new` file beside `.trellis/workflow.md` and does not touch the active
   workflow or hash.
-- `trellis update` after switching to non-native does not restore native.
-- Marketplace native mirror matches bundled native workflow when the mirror file
-  exists.
+- `trellis update` refreshes an unmodified tracked native workflow. When
+  conflicts are skipped, locally edited native and selected non-native
+  workflows retain their content and hash ownership.
+- Bundled native Phase 3.3 requires `trellis-update-spec` admission review and
+  allows the review to complete without writing specs.
 - Real `marketplace/workflows/tdd/workflow.md` planning breadcrumbs include the
   TDD gates: observable behavior slices, public interface under test, and mock
   boundaries.

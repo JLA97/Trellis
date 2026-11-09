@@ -35,7 +35,7 @@ import { init } from "../../src/commands/init.js";
 import { update } from "../../src/commands/update.js";
 import { runWorkflowCommand, WorkflowCommandError } from "../../src/commands/workflow.js";
 import { PATHS } from "../../src/constants/paths.js";
-import { loadHashes } from "../../src/utils/template-hash.js";
+import { computeHash, loadHashes } from "../../src/utils/template-hash.js";
 import { workflowMdTemplate } from "../../src/templates/trellis/index.js";
 import { replacePythonCommandLiterals } from "../../src/configurators/shared.js";
 
@@ -99,18 +99,25 @@ describe("trellis workflow integration", () => {
     fs.rmSync(tmpDir, { recursive: true, force: true });
   });
 
-  it("init --workflow native keeps workflow.md hash-tracked", async () => {
-    stubMarketplaceFetch();
-    await init({ yes: true });
+  it.each([
+    { name: "default", workflow: undefined },
+    { name: "explicit native", workflow: "native" },
+  ])(
+    "init with $name workflow installs and tracks bundled content",
+    async ({ workflow }) => {
+      stubMarketplaceFetch();
+      await init({ yes: true, workflow });
 
-    const wfPath = path.join(tmpDir, PATHS.WORKFLOW_GUIDE_FILE);
-    expect(fs.existsSync(wfPath)).toBe(true);
-    expect(fs.readFileSync(wfPath, "utf-8")).toBe(
-      replacePythonCommandLiterals(workflowMdTemplate),
-    );
-    const hashes = loadHashes(tmpDir);
-    expect(hashes[PATHS.WORKFLOW_GUIDE_FILE]).toBeTruthy();
-  });
+      const written = fs.readFileSync(
+        path.join(tmpDir, PATHS.WORKFLOW_GUIDE_FILE),
+        "utf-8",
+      );
+      expect(written).toBe(replacePythonCommandLiterals(workflowMdTemplate));
+      expect(loadHashes(tmpDir)[PATHS.WORKFLOW_GUIDE_FILE]).toBe(
+        computeHash(written),
+      );
+    },
+  );
 
   it("init --workflow tdd writes marketplace content and removes the hash entry", async () => {
     stubMarketplaceFetch();
@@ -185,11 +192,12 @@ describe("trellis workflow integration", () => {
     await runWorkflowCommand({ template: "native", force: true });
 
     const wfPath = path.join(tmpDir, PATHS.WORKFLOW_GUIDE_FILE);
-    expect(fs.readFileSync(wfPath, "utf-8")).toBe(
-      replacePythonCommandLiterals(workflowMdTemplate),
-    );
+    const written = fs.readFileSync(wfPath, "utf-8");
+    expect(written).toBe(replacePythonCommandLiterals(workflowMdTemplate));
     // Switching back to native re-tracks the hash so update() can manage it.
-    expect(loadHashes(tmpDir)[PATHS.WORKFLOW_GUIDE_FILE]).toBeTruthy();
+    expect(loadHashes(tmpDir)[PATHS.WORKFLOW_GUIDE_FILE]).toBe(
+      computeHash(written),
+    );
   });
 
   it("trellis workflow --template tdd writes marketplace content and removes the hash", async () => {
@@ -295,6 +303,7 @@ describe("trellis workflow integration", () => {
 
     const afterUpdate = fs.readFileSync(wfPath, "utf-8");
     expect(afterUpdate).toBe(beforeUpdate);
+    expect(loadHashes(tmpDir)[PATHS.WORKFLOW_GUIDE_FILE]).toBeUndefined();
     expect(afterUpdate).not.toBe(
       replacePythonCommandLiterals(workflowMdTemplate),
     );
